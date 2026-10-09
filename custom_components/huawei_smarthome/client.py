@@ -15,6 +15,7 @@ from .api.errors import AuthExpiredError
 from .auth.huawei import HuaweiSmartHomeAuthProvider
 from .auth.session import SessionManager
 from .const import (
+    HWHOMEBRIDGE_PROD_IDS,
     OBSERVED_MQTT_FILTER,
     OBSERVED_MQTT_PORT,
     OBSERVED_MQTT_SUBSCRIPTION_QOS,
@@ -262,7 +263,9 @@ class HuaweiSmartHomeClient:
         self.state.connection = ConnectionState.DISCOVERING
         snapshot = await self.api.async_get_snapshot(session)
         snapshot = self._scope_snapshot(snapshot)
+        snapshot = self._exclude_hwhomebridge_products(snapshot)
         snapshot = await self._hydrate_device_details(session, snapshot)
+        snapshot = self._exclude_hwhomebridge_products(snapshot)
         snapshot = await self._enrich_product_metadata(snapshot)
         if not snapshot.complete:
             raise RuntimeError("Huawei SmartHome snapshot is incomplete")
@@ -370,6 +373,34 @@ class HuaweiSmartHomeClient:
                 )
                 for dev_id, home_ids in snapshot.device_home_index.items()
                 if any(home_id in selected for home_id in home_ids)
+            },
+        )
+
+    @staticmethod
+    def _exclude_hwhomebridge_products(
+        snapshot: RemoteDiscoverySnapshot,
+    ) -> RemoteDiscoverySnapshot:
+        """Remove HuaweiHome Bridge virtual devices from discovery."""
+
+        devices = tuple(
+            device
+            for device in snapshot.devices
+            if not (
+                isinstance(device.prod_id, str)
+                and device.prod_id.strip().upper() in HWHOMEBRIDGE_PROD_IDS
+            )
+        )
+        if len(devices) == len(snapshot.devices):
+            return snapshot
+        device_home_index: dict[str, set[str]] = {}
+        for device in devices:
+            device_home_index.setdefault(device.dev_id, set()).add(device.home_id)
+        return replace(
+            snapshot,
+            devices=devices,
+            device_home_index={
+                dev_id: frozenset(home_ids)
+                for dev_id, home_ids in device_home_index.items()
             },
         )
 

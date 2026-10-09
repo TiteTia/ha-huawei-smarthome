@@ -61,3 +61,19 @@ PLATFORMS = (
     "text",
 )
 UNASSIGNED_HOME_ID = "__unassigned__"
+
+# HuaweiHome Bridge registers HA entities in Huawei IoT with these virtual
+# product IDs.  Importing them here would feed the same entities back into HA.
+HWHOMEBRIDGE_PROD_IDS = frozenset(
+    {
+        "9MTJ",
+        "9MTL",
+        "9MTM",
+        "9MTR",
+        "9MTV",
+        "9MTW",
+        "9MTX",
+        "9MU7",
+        "ZG37",
+    }
+)
